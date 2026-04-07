@@ -9,7 +9,8 @@
       "Bash(sf apex run test:*)",
       "WebFetch(domain:randomuser.me)",
       "Bash(sf sobject describe:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(grep -v \"^[^/]*$\")"
     ]
   }
 }
