@@ -10,6 +10,12 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
+
+            - name: 'Checkout code'
+              uses: actions/checkout@v6.0.2
+              with:
+                fetch-depth: 0
+
             - name: "setup Salesforce CLI"
               run: npm install --global @salesforce/cli@latest
 
