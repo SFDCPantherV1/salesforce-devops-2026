@@ -45,6 +45,9 @@ jobs:
               run: npm install --global @salesforce/cli@${{ env.SF_CLI_VERSION }}
               env:
                 SF_CLI_VERSION: latest
+                PYTHON_VERSION: ${{ vars.PYTHON_VERSION }} # ">=3.10"
+                ORG_DEFAULT_ALIAS: ${{ vars.ORG_DEFAULT_ALIAS }}
+                NODE_VERSION: ${{ vars.NODE_VERSION }}
 
             - name: "Check sf cli version"
               run: sf --version
@@ -53,6 +56,19 @@ jobs:
               run: |
                 sf --help
                 sf plugins install code-analyzer@${{ env.SF_CLI_VERSION }}
+
+            - name: "Authenticate with Salesforce"
+              env:
+                PROD_SFDX_AUTH_URL: ${{ secrets.PROD_SFDX_AUTH_URL }} 
+                SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
+              run: |
+                # Read the Secret
+                echo ${{ env.PROD_SFDX_AUTH_URL }}
+                echo ${{ env.PROD_SFDX_AUTH_URL }} > ${{ env.SFDX_AUTH_FILE_PATH }}
+                sf org login sfdx-url --sfdx-url-file \
+                  ${{ env.SFDX_AUTH_FILE_PATH }} \
+                  --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
+                rm ${{ env.SFDX_AUTH_FILE_PATH }}
             
             - name: Run Salesforce Code Analyzer
               id: run-code-analyzer
@@ -72,7 +88,13 @@ jobs:
               run: exit 1
 
             - name: "Authenticate with Salesforce"
-              run: sf org login sfdx-url --sfdx-url-file tmp/authFile.txt --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
+              run: |
+                # Read the Secret
+                echo ${{ secrets.PROD_SFDX_AUTH_URL }} > ${{ secrets.SFDX_AUTH_FILE_PATH }}
+                sf org login sfdx-url --sfdx-url-file \
+                  ${{ secrets.SFDX_AUTH_FILE_PATH }} \
+                  --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
+                rm ${{ secrets.SFDX_AUTH_FILE_PATH }}
 
             - name: "Deploy to Salesforce org"
               run: sf project deploy start --source-dir force-app/main/default --target-org ${{ env.ORG_DEFAULT_ALIAS }} --wait 45
