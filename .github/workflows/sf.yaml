@@ -28,10 +28,11 @@ jobs:
     setup-salesforce: 
         name: "Setup Salesforce"
         runs-on: ubuntu-latest
-
+        environment: production
         env:
-          PYTHON_VERSION: ">=3.10"
-          # SF_CLI_VERSION: latest
+          PYTHON_VERSION: ${{ vars.PYTHON_VERSION }} # ">=3.10"
+          ORG_DEFAULT_ALIAS: ${{ vars.ORG_DEFAULT_ALIAS }}
+          NODE_VERSION: ${{ vars.NODE_VERSION }}
 
         steps:
             - name: 'Checkout code'
