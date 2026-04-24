@@ -4,37 +4,60 @@ run-name: "Salesforce Pipeline Run"
 on:
     push:
 
+env:
+  ORG_DEFAULT_ALIAS: PROD_ORG
+  NODE_VERSION: ">=20.9.0"
+  JAVA_VERSION: ">=11"
+  SF_CLI_VERSION: latest
+
 jobs:
+    setup-salesforce-job-new:
+      name: "Setup Salesforce V2"
+      runs-on: ubuntu-latest
+      steps:
+        - name: 'Checkout code'
+          uses: actions/checkout@v6.0.2
+          with:
+            fetch-depth: 0
+        - name: 'Print ENV Variables'
+          run: |
+            echo "ORG_DEFAULT_ALIAS is $ORG_DEFAULT_ALIAS"
+            echo "Node Version is $NODE_VERSION"
+            echo "Java Version is $JAVA_VERSION"
+
     setup-salesforce: 
         name: "Setup Salesforce"
         runs-on: ubuntu-latest
+
+        env:
+          PYTHON_VERSION: ">=3.10"
+          # SF_CLI_VERSION: latest
 
         steps:
             - name: 'Checkout code'
               uses: actions/checkout@v6.0.2
               with:
                 fetch-depth: 0
-            - name: "Github Context Variables"
-              run: |
-                echo "${{ toJSON(github) }}"
-                echo ${{ toJSON(github) }}
+
             # PREREQUISITES - Only needed if the runner doesn't already satisfy these requirements.
             - name: Ensure node v20.9.0 or greater
               uses: actions/setup-node@v5
               with:
-                node-version: '>=20.9.0'
+                node-version: $NODE_VERSION
             - name: Ensure java v11 or greater
               uses: actions/setup-java@v5
               with:
-                java-version: '>=11'
+                java-version: $JAVA_VERSION
                 distribution: 'zulu'
             - name: Ensure python v3.10 or greater
               uses: actions/setup-python@v6
               with:
-                python-version: '>=3.10'
+                python-version: $PYTHON_VERSION
 
             - name: "setup Salesforce CLI"
-              run: npm install --global @salesforce/cli@latest
+              run: npm install --global @salesforce/cli@${{ env.SF_CLI_VERSION }}
+              env:
+                SF_CLI_VERSION: latest
 
             - name: "Check sf cli version"
               run: sf --version
@@ -42,7 +65,7 @@ jobs:
             - name: "Install Salesforce Code Analyzer"
               run: |
                 sf --help
-                sf plugins install code-analyzer
+                sf plugins install code-analyzer@${{ env.SF_CLI_VERSION }}
             
             - name: Run Salesforce Code Analyzer
               id: run-code-analyzer
@@ -62,10 +85,10 @@ jobs:
               run: exit 1
 
             - name: "Authenticate with Salesforce"
-              run: sf org login sfdx-url --sfdx-url-file tmp/authFile.txt --set-default --alias TRAIL_PROD_ORG
+              run: sf org login sfdx-url --sfdx-url-file tmp/authFile.txt --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
 
             - name: "Deploy to Salesforce org"
-              run: sf project deploy start --source-dir force-app/main/default --target-org TRAIL_PROD_ORG --wait 45
+              run: sf project deploy start --source-dir force-app/main/default --target-org ${{ env.ORG_DEFAULT_ALIAS }} --wait 45
             
             - name: "Assign Permission Set"
-              run: sf org assign permset --name Onboarding_Manager --on-behalf-of amitsingh-6wew@force.com --target-org TRAIL_PROD_ORG
+              run: sf org assign permset --name Onboarding_Manager --on-behalf-of amitsingh-6wew@force.com --target-org ${{ env.ORG_DEFAULT_ALIAS }}
