@@ -59,12 +59,15 @@ jobs:
 
             - name: "Authenticate with Salesforce"
               env:
-                PROD_SFDX_AUTH_URL: ${{ secrets.PROD_SFDX_AUTH_URL }} 
+                PROD_AUTH_URL: ${{ secrets.PROD_SFDX_AUTH_URL }} 
                 SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
               run: |
                 # Read the Secret
-                echo "${{ env.PROD_SFDX_AUTH_URL }}" > /temp/prod-auth.txt
-                sf org login sfdx-url --sfdx-url-file /temp/prod-auth.txt --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
+                echo "$PROD_AUTH_URL" > /temp/prod-auth.txt
+                sf org login sfdx-url \ 
+                  --sfdx-url-file /temp/prod-auth.txt\
+                  --set-default \
+                  --alias ${{ env.ORG_DEFAULT_ALIAS }}
                 rm /temp/prod-auth.txt
             
             - name: Run Salesforce Code Analyzer
