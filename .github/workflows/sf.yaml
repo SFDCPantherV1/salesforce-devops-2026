@@ -10,12 +10,14 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-
             - name: 'Checkout code'
               uses: actions/checkout@v6.0.2
               with:
                 fetch-depth: 0
-
+            - name: "Github Context Variables"
+              run: |
+                echo "${{ toJSON(github) }}"
+                echo ${{ toJSON(github) }}
             # PREREQUISITES - Only needed if the runner doesn't already satisfy these requirements.
             - name: Ensure node v20.9.0 or greater
               uses: actions/setup-node@v5
