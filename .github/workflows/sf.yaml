@@ -63,9 +63,9 @@ jobs:
                 SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
               run: |
                 # Read the Secret
-                echo "$PROD_AUTH_URL" > /temp/prod-auth.txt
+                echo ${{ env.PROD_AUTH_URL }} > /temp/prod-auth.txt
                 sf org login sfdx-url \ 
-                  --sfdx-url-file /temp/prod-auth.txt\
+                  --sfdx-url-file /temp/prod-auth.txt \
                   --set-default \
                   --alias ${{ env.ORG_DEFAULT_ALIAS }}
                 rm /temp/prod-auth.txt
