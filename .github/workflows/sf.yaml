@@ -63,12 +63,9 @@ jobs:
                 SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
               run: |
                 # Read the Secret
-                echo ${{ env.PROD_SFDX_AUTH_URL }}
-                echo ${{ env.PROD_SFDX_AUTH_URL }} > ${{ env.SFDX_AUTH_FILE_PATH }}
-                sf org login sfdx-url --sfdx-url-file \
-                  ${{ env.SFDX_AUTH_FILE_PATH }} \
-                  --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
-                rm ${{ env.SFDX_AUTH_FILE_PATH }}
+                echo "${{ env.PROD_SFDX_AUTH_URL }}" > /temp/prod-auth.txt
+                sf org login sfdx-url --sfdx-url-file /temp/prod-auth.txt --set-default --alias ${{ env.ORG_DEFAULT_ALIAS }}
+                rm /temp/prod-auth.txt
             
             - name: Run Salesforce Code Analyzer
               id: run-code-analyzer
