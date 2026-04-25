@@ -10,6 +10,7 @@ on:
         - release/**
         - UAT
         - integration
+        - feature/**
 
 env:
   ORG_DEFAULT_ALIAS: PROD_ORG
