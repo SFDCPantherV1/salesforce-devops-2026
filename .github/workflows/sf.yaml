@@ -21,6 +21,9 @@ jobs:
           ORG_DEFAULT_ALIAS: ${{ vars.ORG_DEFAULT_ALIAS }}
           NODE_VERSION: ${{ vars.NODE_VERSION }}
           SF_CLI_VERSION: ${{ vars.SF_CLI_VERSION }}
+          CONSUMER_KEY: ${{ secrets.CONSUMER_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          SLACK_API_KEY: ${{ secrets.SLACK_API_KEY }}
 
         steps:
             - name: 'Checkout code'
