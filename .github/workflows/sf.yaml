@@ -82,11 +82,7 @@ jobs:
 
             - name: "Decrypt the Encrypted File"
               run:
-                openssl enc -nosalt -aes-256-cbc -d \
-                  -in ${{ secrets.ENCRYPTION_KEY_FILE }} \
-                  -out ${{ secrets.JWT_KEY_FILE }} -base64 \
-                  -K ${{ secrets.DECRYPTION_KEY }} \
-                  -iv ${{ secrets.DECRYPTION_IV }}
+                openssl enc -nosalt -aes-256-cbc -d -in ${{ secrets.ENCRYPTION_KEY_FILE }} -out ${{ secrets.JWT_KEY_FILE }} -base64 -K ${{ secrets.DECRYPTION_KEY }} -iv ${{ secrets.DECRYPTION_IV }}
 
             - name: "Authenticate with Salesforce"
               run: |
