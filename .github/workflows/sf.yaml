@@ -80,22 +80,37 @@ jobs:
                 sf --help
                 sf plugins install code-analyzer@${{ env.SF_CLI_VERSION }}
 
+            - name: "Decrypt the Encrypted File"
+              run:
+                openssl enc -nosalt -aes-256-cbc -d \
+                  -in ${{ secrets.ENCRYPTION_KEY_FILE }} \
+                  -out ${{ secrets.JWT_KEY_FILE }} -base64 \
+                  -K ${{ secrets.DECRYPTION_KEY }} \
+                  -iv ${{ secrets.DECRYPTION_IV }}
+
             - name: "Authenticate with Salesforce"
-              env:
-                PROD_AUTH_URL: ${{ secrets.PROD_SFDX_AUTH_URL }} 
-                SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
+              run: |
+                sf org login jwt --client-id ${{ secrets.CONSUMER_KEY }} \
+                  --jwt-key-file ${{ secrets.JWT_KEY_FILE }} \
+                  --username ${{ secrets.DEPLOYMENT_USER_USERNAME }} \
+                  --set-default --alias ${{ vars.ORG_DEFAULT_ALIAS }} \
+                  --instance-url ${{ vars.HUB_LOGIN_URL }}
+            #- name: "Authenticate with Salesforce"
+            #  env:
+            #    PROD_AUTH_URL: ${{ secrets.PROD_SFDX_AUTH_URL }} 
+            #    SFDX_AUTH_FILE_PATH: ${{ secrets.SFDX_AUTH_FILE_PATH }}
         
               # /temp/prod-auth.txt
               # /tmp/prod-auth.txt
               # $RUNNER_TEMP/prod-auth.txt
               # $RUNNER_TEMP resolves to /home/runner/work/_temp/
-              run: |
-                echo "${{ env.PROD_AUTH_URL }}" > "${{ env.SFDX_AUTH_FILE_PATH }}"
-                sf org login sfdx-url \
-                  --sfdx-url-file ${{ env.SFDX_AUTH_FILE_PATH }} \
-                  --set-default \
-                  --alias "${{ env.ORG_DEFAULT_ALIAS }}"
-                rm ${{ env.SFDX_AUTH_FILE_PATH }}
+              #run: |
+              #  echo "${{ env.PROD_AUTH_URL }}" > "${{ env.SFDX_AUTH_FILE_PATH }}"
+              #  sf org login sfdx-url \
+              #    --sfdx-url-file ${{ env.SFDX_AUTH_FILE_PATH }} \
+              #    --set-default \
+              #    --alias "${{ env.ORG_DEFAULT_ALIAS }}"
+              #  rm ${{ env.SFDX_AUTH_FILE_PATH }}
             
             - name: Run Salesforce Code Analyzer
               id: run-code-analyzer
