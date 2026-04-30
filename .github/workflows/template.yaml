@@ -7,12 +7,7 @@ on:
         required: true
         type: string
       runner:
-        type: choice
-        description: Runner to use
-        options:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
+        type: string
         default: ubuntu-latest
         required: true
     secrets:
@@ -25,7 +20,7 @@ env:
   JAVA_VERSION: ">=11"
   SF_CLI_VERSION: latest
   ORG_VARIABLE: ${{ vars.ORGANIZATION_VARIABLE }}
-  
+
 jobs:
   build: 
     name: "Build/Deploy against the Salesforce ENV"
