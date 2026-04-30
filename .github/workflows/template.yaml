@@ -23,7 +23,7 @@ on:
         required: true
       DEPLOYMENT_USER_USERNAME:
         required: true
-      JWT_KEY_FILE:
+      CONSUMER_KEY:
         required: true
 
 env:
