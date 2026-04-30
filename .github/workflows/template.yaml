@@ -68,6 +68,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+        
+      - name: Read PR Body
+        run: |
+          echo "${{ github.event.pull_request.body }}" >> pr_body.txt
+          python READ_PRBODY.py > output.txt
+          cat output.txt
+          echo "apex_test_classes=$(cat output.txt)" >> $GITHUB_ENV
+          echo "${{ env.apex_test_classes }}"
+        # ${{ env.apex_test_classes }}
 
       - name: "setup Salesforce CLI"
         run: npm install --global @salesforce/cli@${{ env.SF_CLI_VERSION }}
