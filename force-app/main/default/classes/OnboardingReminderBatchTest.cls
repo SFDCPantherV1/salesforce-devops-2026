@@ -5,14 +5,10 @@
  */
 @IsTest
 private class OnboardingReminderBatchTest {
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private static Onboarding_Request__c insertRequest(Boolean assignHR) {
         Onboarding_Request__c req = new Onboarding_Request__c(
             Employee_Name__c = 'Batch Test Employee',
-            Start_Date__c    = Date.today().addDays(3),
-            Department__c    = 'IT',
+            Start_Date__c    = Date.today().addDays(3), Department__c    = 'IT',
             Status__c        = 'New',
             Assigned_HR__c   = assignHR ? UserInfo.getUserId() : null
         );
