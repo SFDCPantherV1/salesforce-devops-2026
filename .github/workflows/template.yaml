@@ -16,15 +16,20 @@ on:
 
 env:
   ORG_DEFAULT_ALIAS: PROD_ORG
-  NODE_VERSION: ">=20.9.0"
+  NODE_VERSION: ">=24"
   JAVA_VERSION: ">=11"
   SF_CLI_VERSION: latest
   ORG_VARIABLE: ${{ vars.ORGANIZATION_VARIABLE }}
   TEST_LEVEL: RunSpecifiedTests
 
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
 jobs:
   build: 
-    name: "Build/Deploy against the Salesforce ENV"
+    name: "Build/Deploy against the ${{ inputs.envionment }}"
     runs-on: ${{ inputs.runner }}
     environment: ${{ inputs.envionment }}
 
@@ -81,6 +86,7 @@ jobs:
           echo "Variable from the GitHub Org is ${{ env.ORG_VARIABLE }}"
 
       - name: "Install Salesforce Code Analyzer"
+        if: ${{ github.event.pull_request.merged == false && github.event_name == 'pull_request' }}
         run: |
           sf --help
           sf plugins install code-analyzer@${{ env.SF_CLI_VERSION }}
@@ -145,6 +151,20 @@ jobs:
           steps.run-code-analyzer.outputs.num-violations > 10
         run: exit 0
 
+      - name: SonarQube Scan
+        id: run-sonarqube-scan
+        if: ${{ github.event.pull_request.merged == false && github.event_name == 'pull_request' }}
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.verbose=true
+            -Dsonar.language=apex
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.coverage.inclusions=**/*Test.cls
+            -Dsonar.exclusions=**/.cmp,**/force-app/**/fflib_.cls,**/.yml,**/.js,**/.xml,**/.css,**/.html,**/.woff2,**/.woff,**/.auradoc,**/*.svg,force-app/main/default/staticresources/**
+
       - name: "Validate to Salesforce ORG - With Specific Tests"
         if: ${{ env.apex_test_classes != 'No Apex classes found' && github.event.pull_request.merged == false && github.event_name == 'pull_request' }}
         run: |
@@ -161,7 +181,7 @@ jobs:
             --source-dir delta/force-app/main/default \
             --target-org ${{ env.ORG_DEFAULT_ALIAS }} \
             --wait 45
-            --dry-run --json 2>&1 | tee deploy-result.json
+            --dry-run
 
       - name: "Validate to Salesforce ORG - RunRelevantTests"
         if: ${{ env.apex_test_classes == 'RunRelevantTests' && github.event.pull_request.merged == false && github.event_name == 'pull_request' }}
@@ -176,8 +196,74 @@ jobs:
         run: |
           python CODE_COVERAGE.py deploy-result.json
 
+      - name: Post Validation Job ID as PR Comment
+        id: post-validation-id
+        if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+        run: |
+          if [ -f "deploy-result.json" ]; then
+            VALIDATION_ID=$(python -c "
+          import sys, json
+          try:
+              data = json.load(open('deploy-result.json'))
+              print(data.get('result', {}).get('id', ''))
+          except Exception:
+              print('')
+          " 2>/dev/null || echo "")
+            if [ -n "$VALIDATION_ID" ]; then
+              echo "Captured Salesforce validation job ID: $VALIDATION_ID"
+              # Delete any previous validation ID comment from this workflow to keep the PR clean
+              gh pr view ${{ github.event.pull_request.number }} --json comments \
+                --jq '.comments[] | select(.body | startswith("<!-- sf-validation-id -->")) | .id' \
+                | xargs -I{} gh api --method DELETE /repos/${{ github.repository }}/issues/comments/{} || true
+              # Post the new ID as a hidden comment
+              gh pr comment ${{ github.event.pull_request.number }} \
+                --body "<!-- sf-validation-id -->
+          sf-validation-id: $VALIDATION_ID"
+            else
+              echo "No validation ID found in deploy-result.json — quick deploy will not be used"
+            fi
+          else
+            echo "deploy-result.json not found — skipping ID capture"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Read Validation Job ID from PR Comment
+        id: read-validation-id
+        if: ${{ github.event.pull_request.merged == true && github.event.action == 'closed' }}
+        run: |
+          VALIDATION_ID=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
+            --jq '.comments[] | select(.body | startswith("<!-- sf-validation-id -->")) | .body' \
+            | grep "sf-validation-id:" | tail -1 | awk '{print $2}' || echo "")
+          if [ -n "$VALIDATION_ID" ]; then
+            echo "validation_id=$VALIDATION_ID" >> $GITHUB_ENV
+            echo "Loaded validation job ID for quick deploy: $VALIDATION_ID"
+          else
+            echo "No validation ID comment found — falling back to full deploy"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Quick Deploy to Salesforce (reuse validated job)
+        if: ${{ github.event.pull_request.merged == true && github.event.action == 'closed' && env.validation_id != '' }}
+        run: |
+          set -eo pipefail
+          if grep -q '<types>' delta/package/package.xml ; then
+            echo "---- Attempting quick deploy using validated job ID: ${{ env.validation_id }} ----"
+            if sf project deploy quick --job-id ${{ env.validation_id }} --target-org ${{ env.ORG_DEFAULT_ALIAS }} --wait 45 ; then
+              echo "deploy_done=true" >> $GITHUB_ENV
+              echo "Quick deploy succeeded"
+            else
+              echo "Quick deploy failed (validation may have expired, already been deployed, or ran without tests) — falling back to full deploy"
+              echo "deploy_done=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "---- No changes to deploy ----"
+            echo "deploy_done=true" >> $GITHUB_ENV
+          fi
+
       - name: "Deploy to Salesforce ORG - RunRelevantTests"
-        if: ${{ env.apex_test_classes == 'RunRelevantTests' && github.event_name == 'push'}}
+        if: ${{ env.apex_test_classes == 'RunRelevantTests' && github.event.pull_request.merged == true && github.event.action == 'closed' && (env.validation_id == '' || env.deploy_done == false ) }}
         run: |
           sf project deploy start --test-level RunRelevantTests \
             --source-dir delta/force-app/main/default  \
@@ -186,7 +272,8 @@ jobs:
       # github.event_name == 'pull_request', push (merged)
       # github.pull_request.merged == true
       - name: "Deploy to Salesforce org - Default Test Level"
-        if: ${{ env.apex_test_classes == 'No Apex classes found' && github.event_name == 'push' }}
+        #if: ${{ github.event.pull_request.merged == true && github.event.action == 'closed' && env.apex_classes == 'No Apex classes found' && (env.validation_id == '' || env.deploy_done == 'false') }}
+        if: ${{ env.apex_test_classes == 'No Apex classes found' && github.event.pull_request.merged == true && github.event.action == 'closed' && (env.validation_id == '' || env.deploy_done == false ) }}
         run: |
           sf project deploy start \
             --source-dir delta/force-app/main/default \
@@ -194,12 +281,45 @@ jobs:
             --wait 45
 
       - name: "Deploy to Salesforce ORG - With Specific Tests"
-        if: ${{ env.apex_test_classes != 'No Apex classes found' && github.event_name == 'push' }}
+        if: ${{ env.apex_test_classes != 'No Apex classes found' && github.event.pull_request.merged == true && github.event.action == 'closed' && (env.validation_id == '' || env.deploy_done == false ) }}
         run: |
           sf project deploy start --test-level ${{ env.TEST_LEVEL }} \
             --tests ${{ env.apex_test_classes }} \
             --source-dir delta/force-app/main/default \
             --target-org ${{ env.ORG_DEFAULT_ALIAS }} --wait 45
+      
+      #- name: The Slack GitHub Action
+      #  if: always() # success(), failure()
+      #  uses: slackapi/slack-github-action@v3.0.3
+      #  with:
+      #    webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #    webhook-type: webhook-trigger
+      #    payload: |
+      #      status: "${{ job.status }}"
+      #      option: "false"
+
+      - name: Notify Slack
+        if: always()
+        run: |
+          STATUS_EMOJI="${{ job.status == 'success' && '✅' || '❌' }}"
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "'"${STATUS_EMOJI} *${{ github.workflow }}* — ${{ job.status }}"'",
+              "attachments": [
+                {
+                  "color": "'"${{ job.status == 'success' && 'good' || 'danger' }}"'",
+                  "fields": [
+                    { "title": "Repository", "value": "${{ github.repository }}", "short": true },
+                    { "title": "Branch",     "value": "${{ github.ref_name }}",   "short": true },
+                    { "title": "Triggered by", "value": "${{ github.actor }}",   "short": true },
+                    { "title": "Event",      "value": "${{ github.event_name }}", "short": true },
+                    { "title": "Run URL",    "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }'
+
 
         # run: sf project deploy start --test-level RunSpecifiedTests --test OnboardingReminderBatchTest OnboardingReminderBatchTest1 --source-dir force-app/main/default --target-org ${{ env.ORG_DEFAULT_ALIAS }} --wait 45
       

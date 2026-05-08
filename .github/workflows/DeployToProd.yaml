@@ -1,34 +1,34 @@
-name: "Salesforce Hotfix Pipeline"
-run-name: "Salesforce Hotfix Pipeline Run"
+name: "Salesforce Prod Deployment Pipeline"
+run-name: "Salesforce Prod Deployment Pipeline Run"
 
 on:
   pull_request:
     types:
-      - opened
-      - synchronize
+      - closed
     paths:
       - 'force-app/**'
     branches:
-      - hotfix
-      
-permissions:
-  contents: read
-  pull-requests: write
-  actions: read
+      - main
+      - master
 
 env:
-  ORG_DEFAULT_ALIAS: UAT_ORG
+  ORG_DEFAULT_ALIAS: PROD_ORG
   NODE_VERSION: ">=20.9.0"
   JAVA_VERSION: ">=11"
   SF_CLI_VERSION: latest
   ORG_VARIABLE: ${{ vars.ORGANIZATION_VARIABLE }}
 
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  
 jobs:
   build-salesforce: 
     name: "Build & Validate"
     uses: "./.github/workflows/template.yaml"
     with:
-      envionment: hotfix
+      envionment: production
       runner: macos-latest
     secrets: inherit
     #secrets: 

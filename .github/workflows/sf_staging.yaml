@@ -5,12 +5,17 @@ on:
     pull_request:
       types:
         - opened
-        - closed
+        - synchronize
       paths:
         - 'force-app/**'
       branches:
         - staging
 
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  
 env:
   ORG_DEFAULT_ALIAS: STAGING_ORG
   NODE_VERSION: ">=20.9.0"
