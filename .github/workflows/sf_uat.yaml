@@ -31,7 +31,7 @@ jobs:
     uses: "./.github/workflows/template.yaml"
     with:
       envionment: UAT
-      runner: macos-latest
+      runner: self-hosted #macos-latest
       env_alias: uat
     secrets: inherit
     #secrets: 
