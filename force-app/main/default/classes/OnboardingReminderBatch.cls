@@ -15,9 +15,6 @@ public with sharing class OnboardingReminderBatch
         implements Database.Batchable<SObject>, Database.Stateful {
 
     private Integer processedCount = 0;
-
-    // ─── start ────────────────────────────────────────────────────────────────
-
     /**
      * @description Returns a QueryLocator for all Onboarding Requests that start
      *              in exactly 3 days and are not yet Completed or Cancelled.
